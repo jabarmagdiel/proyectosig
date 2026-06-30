@@ -79,6 +79,25 @@ class ApiService {
     }
   }
 
+  // 5. Fetch walking route from OSRM to draw realistic paths
+  static Future<List<dynamic>?> getWalkingRouteGeometry(double fromLat, double fromLon, double toLat, double toLon) async {
+    try {
+      // OSRM expects coordinates in lon,lat format
+      final url = 'https://router.project-osrm.org/route/v1/foot/$fromLon,$fromLat;$toLon,$toLat?overview=full&geometries=geojson';
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['routes'] != null && data['routes'].isNotEmpty) {
+          // OSRM returns coordinates as [lon, lat]
+          return data['routes'][0]['geometry']['coordinates'];
+        }
+      }
+    } catch (e) {
+      print('Error fetching OSRM walking route: $e');
+    }
+    return null; // Fallback to straight line if API fails
+  }
+
   // FALLBACKS for localhost (iOS simulator / Desktop) if Android emulator loopback fails
   static const String altBaseUrl = 'http://localhost:3000/api';
 

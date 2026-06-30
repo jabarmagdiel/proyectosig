@@ -173,6 +173,36 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         metric: _routingMetric,
       );
 
+      // Enhance WALK legs with realistic street geometry using OSRM
+      if (data != null && data['routes'] != null) {
+        final routes = data['routes'] as List;
+        for (var route in routes) {
+          final legs = route['legs'] as List;
+          for (var leg in legs) {
+            if (leg['type'] == 'WALK') {
+              final points = leg['points'] as List;
+              if (points.length >= 2) {
+                final fromLat = points.first['lat'];
+                final fromLon = points.first['lon'];
+                final toLat = points.last['lat'];
+                final toLon = points.last['lon'];
+                
+                if (fromLat != toLat || fromLon != toLon) {
+                  final osrmGeom = await ApiService.getWalkingRouteGeometry(fromLat, fromLon, toLat, toLon);
+                  if (osrmGeom != null) {
+                    final newPoints = [];
+                    for (var coords in osrmGeom) {
+                      newPoints.add({'lat': coords[1], 'lon': coords[0]}); // OSRM is [lon, lat]
+                    }
+                    leg['points'] = newPoints;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
       setState(() {
         _isCalculatingRoute = false;
         if (data != null && data['routes'] != null) {
