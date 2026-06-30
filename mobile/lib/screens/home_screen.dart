@@ -1236,30 +1236,39 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     required String labelBottom,
     required bool showLeftLine,
     required bool showRightLine,
+    Color? lineColor,
   }) {
+    final effectiveLineColor = lineColor ?? Colors.white24;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, color: color, size: 22),
-        const SizedBox(height: 5),
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.15),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
               child: showLeftLine
-                  ? Container(height: 2.5, color: const Color(0xFF8CFF2F))
+                  ? Container(height: 2.0, color: effectiveLineColor)
                   : const SizedBox.shrink(),
             ),
             Container(
-              width: 12,
-              height: 12,
+              width: 10,
+              height: 10,
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF171923), width: 2.5),
+                border: Border.all(color: const Color(0xFF171923), width: 2.0),
                 boxShadow: [
                   BoxShadow(
-                    color: color.withOpacity(0.4),
-                    blurRadius: 4,
+                    color: color.withOpacity(0.6),
+                    blurRadius: 6,
                     spreadRadius: 1,
                   ),
                 ],
@@ -1267,18 +1276,18 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             ),
             Expanded(
               child: showRightLine
-                  ? Container(height: 2.5, color: const Color(0xFF8CFF2F))
+                  ? Container(height: 2.0, color: effectiveLineColor)
                   : const SizedBox.shrink(),
             ),
           ],
         ),
-        const SizedBox(height: 5),
+        const SizedBox(height: 8),
         Text(
           labelTop,
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 10.5,
-            fontWeight: FontWeight.bold,
+            fontSize: 11.0,
+            fontWeight: FontWeight.w700,
           ),
           textAlign: TextAlign.center,
           maxLines: 1,
@@ -1288,8 +1297,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         Text(
           labelBottom,
           style: const TextStyle(
-            color: Colors.white38,
-            fontSize: 9.5,
+            color: Colors.white54,
+            fontSize: 10.0,
+            fontWeight: FontWeight.w500,
           ),
           textAlign: TextAlign.center,
         ),
@@ -1306,6 +1316,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     }).toList();
 
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: legs.asMap().entries.map((entry) {
         final idx = entry.key;
         final leg = entry.value;
@@ -1314,13 +1325,13 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         final dist = leg['distance'] as double;
 
         IconData iconData = Icons.directions_walk;
-        Color themeColor = const Color(0xFF8CFF2F); // Lime green
+        Color themeColor = Colors.grey.shade400;
         String labelTop = "";
         String labelBottom = "${time.toStringAsFixed(1)} min";
 
         if (type == 'WALK') {
           iconData = Icons.directions_walk;
-          themeColor = const Color(0xFF8CFF2F);
+          themeColor = Colors.grey.shade400;
           if (dist < 1.0) {
             labelTop = "${(dist * 1000).toStringAsFixed(0)} m.";
           } else {
@@ -1348,6 +1359,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             labelBottom: labelBottom,
             showLeftLine: showLeftLine,
             showRightLine: showRightLine,
+            lineColor: type == 'TRAVEL' ? themeColor.withOpacity(0.5) : Colors.white24,
           ),
         );
       }).toList(),
@@ -1360,7 +1372,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     // Calculate transfers
     final transfersCount = (route['legs'] as List).where((l) => l['type'] == 'TRANSFER').length;
     final transfersText = transfersCount == 0 
-        ? 'Sin transbordos' 
+        ? 'Directo (Sin transbordos)' 
         : (transfersCount == 1 ? '1 transbordo' : '$transfersCount transbordos');
     
     final totalTime = route['totalTimeMin'] as double;
@@ -1368,32 +1380,40 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       decoration: BoxDecoration(
-        color: const Color(0xFF171923), // Dark grey
-        borderRadius: BorderRadius.circular(16.0),
+        gradient: LinearGradient(
+          colors: isSelected 
+              ? [const Color(0xFF1E2433), const Color(0xFF12141D)]
+              : [const Color(0xFF161821), const Color(0xFF0D0F15)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24.0),
         border: Border.all(
-          color: isSelected ? const Color(0xFF8CFF2F) : Colors.white.withOpacity(0.08),
-          width: isSelected ? 2.0 : 1.0,
+          color: isSelected ? const Color(0xFF8CFF2F).withOpacity(0.6) : Colors.white.withOpacity(0.05),
+          width: isSelected ? 1.5 : 1.0,
         ),
         boxShadow: [
           if (isSelected)
             BoxShadow(
               color: const Color(0xFF8CFF2F).withOpacity(0.12),
-              blurRadius: 10,
-              spreadRadius: 1,
-              offset: const Offset(0, 4),
+              blurRadius: 20,
+              spreadRadius: -5,
+              offset: const Offset(0, 8),
             )
           else
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 6,
-              offset: const Offset(0, 3),
+              color: Colors.black.withOpacity(0.4),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
             ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16.0),
+          borderRadius: BorderRadius.circular(24.0),
+          splashColor: const Color(0xFF8CFF2F).withOpacity(0.1),
+          highlightColor: const Color(0xFF8CFF2F).withOpacity(0.05),
           onTap: () {
             setState(() {
               _selectedRouteIndex = index;
@@ -1402,42 +1422,74 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             _fitMapToRouteResult();
           },
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(24.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header Badge (Time and transbordo)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2E7D32).withOpacity(0.85), // Dark green background
-                    borderRadius: BorderRadius.circular(8.0),
-                    border: Border.all(color: const Color(0xFF8CFF2F).withOpacity(0.3)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Tiempo total: ${totalTime.toStringAsFixed(0)} min.',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13.5,
+                // Header (Time and transbordo)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          totalTime.toStringAsFixed(0),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 36.0,
+                            letterSpacing: -1.0,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'min',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16.0,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
+                      decoration: BoxDecoration(
+                        color: transfersCount == 0 
+                            ? const Color(0xFF8CFF2F).withOpacity(0.15)
+                            : Colors.orangeAccent.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20.0),
+                        border: Border.all(
+                          color: transfersCount == 0 
+                              ? const Color(0xFF8CFF2F).withOpacity(0.3)
+                              : Colors.orangeAccent.withOpacity(0.3),
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        transfersText,
-                        style: const TextStyle(
-                          color: Color(0xFFE0E0E0),
-                          fontWeight: FontWeight.w500,
-                          fontSize: 11.5,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            transfersCount == 0 ? Icons.check_circle_outline : Icons.sync_alt,
+                            color: transfersCount == 0 ? const Color(0xFF8CFF2F) : Colors.orangeAccent,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            transfersText,
+                            style: TextStyle(
+                              color: transfersCount == 0 ? const Color(0xFF8CFF2F) : Colors.orangeAccent,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12.0,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 24),
                 // Horizontal Timeline
                 _buildHorizontalTimeline(route),
               ],
