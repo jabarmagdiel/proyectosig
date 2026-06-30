@@ -360,7 +360,7 @@ async function findOptimalRoute(startLat, startLon, endLat, endLon, mode = 'smar
         currentLeg.distance += edge.dist;
         currentLeg.time += edge.time * 60;
         currentLeg.stopsCount += 1;
-        currentLeg.points.push({ lat: toPoint.latitud, lon: toPoint.longitud });
+        currentLeg.points.push({ lat: toPoint.latitud, lon: toPoint.longitud, stop: toPoint.stop });
         currentLeg.description = `Viaja en Línea ${lineInfo.nombre_linea} (${routeInfo.descripcion}) durante ${currentLeg.stopsCount} paradas`;
       } else {
         // Start a new travel leg
@@ -379,8 +379,8 @@ async function findOptimalRoute(startLat, startLon, endLat, endLon, mode = 'smar
           time: edge.time * 60, // in minutes
           stopsCount: 1,
           points: [
-            { lat: fromPoint.latitud, lon: fromPoint.longitud },
-            { lat: toPoint.latitud, lon: toPoint.longitud }
+            { lat: fromPoint.latitud, lon: fromPoint.longitud, stop: fromPoint.stop },
+            { lat: toPoint.latitud, lon: toPoint.longitud, stop: toPoint.stop }
           ]
         };
         legs.push(currentLeg);
@@ -496,7 +496,7 @@ async function findAlternativeRoutes(startLat, startLon, endLat, endLon, mode = 
       for (const seg of segs) {
         if (seg.orden >= minStartSeg.orden && seg.orden <= maxEndSeg.orden) {
           const pt = pointsMap.get(seg.id_punto);
-          travelPoints.push({ lat: pt.latitud, lon: pt.longitud });
+          travelPoints.push({ lat: pt.latitud, lon: pt.longitud, stop: pt.stop });
           travelDist += seg.distancia;
           travelTime += seg.tiempo * 60; // in minutes
           stopsCount++;
@@ -507,7 +507,7 @@ async function findAlternativeRoutes(startLat, startLon, endLat, endLon, mode = 
       const lastSeg = maxEndSeg;
       if (lastSeg.id_punto_dest) {
         const destPt = pointsMap.get(lastSeg.id_punto_dest);
-        travelPoints.push({ lat: destPt.latitud, lon: destPt.longitud });
+        travelPoints.push({ lat: destPt.latitud, lon: destPt.longitud, stop: destPt.stop });
       }
 
       // Walk 1
