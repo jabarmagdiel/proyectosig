@@ -16,6 +16,9 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final MapController _mapController = MapController();
+  final ScrollController _linesScrollController = ScrollController();
+  final ScrollController _nearScrollController = ScrollController();
+  final ScrollController _routeScrollController = ScrollController();
 
   // Coordinates for Santa Cruz de la Sierra center
   final LatLng _sczCenter = const LatLng(-17.783, -63.180);
@@ -60,6 +63,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   @override
   void dispose() {
     _tabController.dispose();
+    _linesScrollController.dispose();
+    _nearScrollController.dispose();
+    _routeScrollController.dispose();
     super.dispose();
   }
 
@@ -263,7 +269,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     _showInfoSnackBar('Puntos de Origen y Destino intercambiados.');
   }
 
-  // Get current device position using Geolocator package
+  // Obtener posición del dispositivo usando Geolocator
   Future<Position?> _getCurrentLocation() async {
     bool serviceEnabled;
     LocationPermission permission;
@@ -346,6 +352,59 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     } else {
       _showMapTapOptions(point);
     }
+  }
+
+  // Buscar Dirección usando Nominatim
+  Future<void> _searchAddressDialog(bool isStart) async {
+    final TextEditingController controller = TextEditingController();
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF171923),
+          title: Text(isStart ? 'Buscar Origen' : 'Buscar Destino', style: const TextStyle(color: Colors.white)),
+          content: TextField(
+            controller: controller,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              hintText: 'Ej. Plaza 24 de Septiembre',
+              hintStyle: TextStyle(color: Colors.white38),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar', style: TextStyle(color: Colors.white54)),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                if (controller.text.trim().isNotEmpty) {
+                  _showInfoSnackBar('Buscando lugar...');
+                  final result = await ApiService.getCoordinatesForAddress(controller.text);
+                  if (result != null) {
+                    setState(() {
+                      final loc = LatLng(result['lat'], result['lon']);
+                      if (isStart) {
+                        _startPoint = loc;
+                      } else {
+                        _endPoint = loc;
+                      }
+                      _optimalRouteResult = null;
+                    });
+                    _mapController.move(LatLng(result['lat'], result['lon']), 15.5);
+                    _showInfoSnackBar('${isStart ? 'Origen' : 'Destino'} establecido en: ${result['name']}');
+                  } else {
+                    _showErrorSnackBar('No se encontró el lugar. Intenta ser más específico.');
+                  }
+                }
+              },
+              child: const Text('Buscar', style: TextStyle(color: Color(0xFF0D99FF))),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showMapTapOptions(LatLng point) {
@@ -466,7 +525,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   void _addDirectionalArrows(List<LatLng> points, List<Marker> markers, Color color) {
     if (points.length < 2) return;
 
-    // Draw an arrow marker approximately every 12 points for clean density
+    // Dibuja una flecha aproximadamente cada 12 puntos para no saturar
     int interval = 12;
     if (points.length > 80) {
       interval = (points.length / 10).round();
@@ -507,11 +566,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    // Generate map layers dynamically based on state
+    // Generar capas del mapa dinámicamente según el estado
     final List<Polyline> polylines = [];
     final List<Marker> markers = [];
 
-    // 1. Draw Selected Line Routes
+    // 1. Dibujar Rutas de la Línea Seleccionada
     if (_selectedLineDetails != null) {
       final routes = _selectedLineDetails!['routes'] as List;
       final Color lineColor = _parseHexColor(_selectedLineDetails!['line']['color_linea']);
@@ -583,7 +642,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       }
     }
 
-    // 2. Draw Dijkstra Optimal Route Path
+    // 2. Dibujar Ruta Óptima de Dijkstra
     if (_optimalRouteResult != null) {
       final legs = _optimalRouteResult!['legs'] as List;
       for (var leg in legs) {
@@ -654,7 +713,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       }
     }
 
-    // 3. Draw Start (A) and End (B) interactive routing pins
+    // 3. Dibujar pines interactivos de Origen (A) y Destino (B)
     if (_startPoint != null) {
       markers.add(
         Marker(
@@ -678,7 +737,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       );
     }
 
-    // 4. Draw Near Me search center marker
+    // 4. Dibujar marcador de búsqueda Cerca de Mí
     if (_nearSearchCenter != null) {
       markers.add(
         Marker(
@@ -932,9 +991,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                           child: TabBarView(
                             controller: _tabController,
                             children: [
-                              _buildLinesTab(scrollController),
-                              _buildNearMeTab(scrollController),
-                              _buildRoutePlannerTab(scrollController),
+                              _buildLinesTab(_linesScrollController),
+                              _buildNearMeTab(_nearScrollController),
+                              _buildRoutePlannerTab(_routeScrollController),
                             ],
                           ),
                         ),
@@ -950,7 +1009,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  // TAB 1: Browse bus lines
+  // PESTAÑA 1: Explorar líneas de bus
   Widget _buildLinesTab(ScrollController scrollController) {
     if (_isLoadingLines) {
       return const Center(child: CircularProgressIndicator(color: Color(0xFF0D99FF)));
@@ -1115,7 +1174,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  // TAB 2: Identify lines near a clicked location
+  // PESTAÑA 2: Identificar líneas cerca de un lugar
   Widget _buildNearMeTab(ScrollController scrollController) {
     return ListView(
       controller: scrollController,
@@ -1502,7 +1561,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  // TAB 3: Path planner (Dijkstra)
+  // PESTAÑA 3: Planificador de rutas (Dijkstra)
   Widget _buildRoutePlannerTab(ScrollController scrollController) {
     return ListView(
       controller: scrollController,
@@ -1513,7 +1572,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16.0),
         ),
         const SizedBox(height: 12),
-        // Point A Selector
+        // Selector de Origen (Punto A)
         Row(
           children: [
             Expanded(
@@ -1541,6 +1600,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 ),
               ),
             ),
+            IconButton(
+              onPressed: () => _searchAddressDialog(true),
+              icon: const Icon(Icons.search, color: Color(0xFF0D99FF)),
+              tooltip: 'Buscar Origen',
+            ),
             if (_startPoint != null)
               IconButton(
                 onPressed: () => setState(() {
@@ -1551,7 +1615,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               )
           ],
         ),
-        // Swap Button / Quick Swap Control
+        // Botón de Intercambio Rápido
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 2.0),
           child: Row(
@@ -1566,7 +1630,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             ],
           ),
         ),
-        // Point B Selector
+        // Selector de Destino (Punto B)
         Row(
           children: [
             Expanded(
@@ -1594,6 +1658,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 ),
               ),
             ),
+            IconButton(
+              onPressed: () => _searchAddressDialog(false),
+              icon: const Icon(Icons.search, color: Color(0xFF0D99FF)),
+              tooltip: 'Buscar Destino',
+            ),
             if (_endPoint != null)
               IconButton(
                 onPressed: () => setState(() {
@@ -1605,7 +1674,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ],
         ),
         const SizedBox(height: 12),
-        // Routing Configurations (Smart vs Official, Time vs Distance)
+        // Configuraciones de Ruta (Inteligente vs Oficial, Tiempo vs Distancia)
         Wrap(
           crossAxisAlignment: WrapCrossAlignment.center,
           spacing: 8.0,
@@ -1681,7 +1750,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         ),
         const Divider(color: Colors.white12, height: 30),
 
-        // 4. DISPLAY ROUTE RESULTS
+        // 4. MOSTRAR RESULTADOS DE LA RUTA
         if (_alternativeRoutes.isNotEmpty) ...[
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8.0),
@@ -1707,7 +1776,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           ),
           const SizedBox(height: 8),
 
-          // Render step-by-step route directions as interactive card list
+          // Mostrar direcciones de ruta paso a paso como tarjetas interactivas
           ...(_optimalRouteResult!['legs'] as List).asMap().entries.map((entry) {
             final leg = entry.value;
             final type = leg['type'];
@@ -1741,17 +1810,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 margin: const EdgeInsets.symmetric(vertical: 6.0),
                 padding: const EdgeInsets.all(12.0),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.04),
+                  color: iconColor.withOpacity(0.05),
                   borderRadius: BorderRadius.circular(14.0),
-                  border: Border(
-                    left: BorderSide(
-                      color: iconColor,
-                      width: 5.0,
-                    ),
-                    top: BorderSide(color: Colors.white.withOpacity(0.03)),
-                    right: BorderSide(color: Colors.white.withOpacity(0.03)),
-                    bottom: BorderSide(color: Colors.white.withOpacity(0.03)),
-                  ),
+                  border: Border.all(color: iconColor.withOpacity(0.3), width: 1.5),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,

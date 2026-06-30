@@ -98,6 +98,28 @@ class ApiService {
     return null; // Fallback to straight line if API fails
   }
 
+  // 6. Geocoding: Search for places using Nominatim
+  static Future<Map<String, dynamic>?> getCoordinatesForAddress(String query) async {
+    try {
+      final url = 'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(query)}&format=json&limit=1&bounded=1&viewbox=-63.22,-17.72,-63.12,-17.85';
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as List;
+        if (data.isNotEmpty) {
+          final place = data[0];
+          return {
+            'lat': double.parse(place['lat']),
+            'lon': double.parse(place['lon']),
+            'name': place['display_name'].split(',').first, // Get first part
+          };
+        }
+      }
+    } catch (e) {
+      print('Error in getCoordinatesForAddress: $e');
+    }
+    return null;
+  }
+
   // FALLBACKS for localhost (iOS simulator / Desktop) if Android emulator loopback fails
   static const String altBaseUrl = 'http://localhost:3000/api';
 

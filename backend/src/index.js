@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const db = require('./db');
-const { findOptimalRoute, findAlternativeRoutes, haversine } = require('./dijkstra');
+const { initCache, findOptimalRoute, findAlternativeRoutes, haversine } = require('./dijkstra');
 
 require('dotenv').config();
 
@@ -181,11 +181,16 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', time: new Date() });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Express API Server running on port ${PORT}`);
-  console.log(`Endpoints available:`);
-  console.log(`  - GET http://localhost:${PORT}/api/lines`);
-  console.log(`  - GET http://localhost:${PORT}/api/lines/:id`);
-  console.log(`  - GET http://localhost:${PORT}/api/lines/near?lat=-17.78&lon=-63.17&radius=500`);
-  console.log(`  - GET http://localhost:${PORT}/api/route?fromLat=-17.782&fromLon=-63.170&toLat=-17.780&toLon=-63.172`);
+initCache().then(() => {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Express API Server running on port ${PORT}`);
+    console.log(`Endpoints available:`);
+    console.log(`  - GET http://localhost:${PORT}/api/lines`);
+    console.log(`  - GET http://localhost:${PORT}/api/lines/:id`);
+    console.log(`  - GET http://localhost:${PORT}/api/lines/near?lat=-17.78&lon=-63.17&radius=500`);
+    console.log(`  - GET http://localhost:${PORT}/api/route?fromLat=-17.782&fromLon=-63.170&toLat=-17.780&toLon=-63.172`);
+  });
+}).catch(err => {
+  console.error("Failed to initialize cache:", err);
+  process.exit(1);
 });

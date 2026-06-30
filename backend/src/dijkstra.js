@@ -13,6 +13,36 @@ function haversine(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
+// --- CACHÉ GLOBAL ---
+let linesMap = new Map();
+let pointsMap = new Map();
+let routesMap = new Map();
+let points = [];
+let segments = [];
+let transfers = [];
+let isCacheLoaded = false;
+
+async function initCache() {
+  if (isCacheLoaded) return;
+  console.log("Loading graph network into memory cache...");
+  const linesRes = await db.query('SELECT * FROM lineas');
+  const pointsRes = await db.query('SELECT * FROM puntos');
+  const routesRes = await db.query('SELECT * FROM linea_ruta');
+  const segmentsRes = await db.query('SELECT * FROM lineas_puntos ORDER BY id_linea_ruta, orden');
+  const transfersRes = await db.query('SELECT * FROM puntos_trasbordos');
+
+  linesMap = new Map(linesRes.rows.map(l => [l.id_linea, l]));
+  pointsMap = new Map(pointsRes.rows.map(p => [p.id_point, p]));
+  routesMap = new Map(routesRes.rows.map(r => [r.id_linea_ruta, r]));
+
+  points = pointsRes.rows;
+  segments = segmentsRes.rows;
+  transfers = transfersRes.rows;
+  
+  isCacheLoaded = true;
+  console.log("Network cache loaded successfully!");
+}
+
 // Priority Queue implementation for Dijkstra (Min-Heap)
 class PriorityQueue {
   constructor() {
@@ -47,19 +77,7 @@ class PriorityQueue {
 async function findOptimalRoute(startLat, startLon, endLat, endLon, mode = 'smart', metric = 'time', walkSpeed = 4.0, defaultTransferPenalty = 5.0) {
   console.log(`Calculating route from (${startLat}, ${startLon}) to (${endLat}, ${endLon}) using mode=${mode}, metric=${metric}`);
 
-  // 1. Load network data from database
-  const linesRes = await db.query('SELECT * FROM lineas');
-  const pointsRes = await db.query('SELECT * FROM puntos');
-  const routesRes = await db.query('SELECT * FROM linea_ruta');
-  const segmentsRes = await db.query('SELECT * FROM lineas_puntos ORDER BY id_linea_ruta, orden');
-  const transfersRes = await db.query('SELECT * FROM puntos_trasbordos');
-
-  const linesMap = new Map(linesRes.rows.map(l => [l.id_linea, l]));
-  const pointsMap = new Map(pointsRes.rows.map(p => [p.id_point, p]));
-  const routesMap = new Map(routesRes.rows.map(r => [r.id_linea_ruta, r]));
-
-  const points = pointsRes.rows;
-  const segments = segmentsRes.rows;
+  // 1. Los datos ahora se cargan globalmente a través de initCache()
 
   // 2. Identify which routes pass through each physical point
   // pointToRoutesMap: id_punto -> Set of id_linea_ruta
@@ -101,7 +119,7 @@ async function findOptimalRoute(startLat, startLon, endLat, endLon, mode = 'smar
   // Transfer edges
   if (mode === 'official') {
     // Use only table puntos_trasbordos
-    for (const tf of transfersRes.rows) {
+    for (const tf of transfers) {
       const pId = tf.id_punto;
       const rOrig = tf.id_linea_origen; // Route ID in database!
       const rDest = tf.id_linea_destino; // Route ID in database!
@@ -407,19 +425,7 @@ async function findOptimalRoute(startLat, startLon, endLat, endLon, mode = 'smar
 async function findAlternativeRoutes(startLat, startLon, endLat, endLon, mode = 'smart', metric = 'time', walkSpeed = 4.0, defaultTransferPenalty = 5.0) {
   console.log(`Calculating alternative routes from (${startLat}, ${startLon}) to (${endLat}, ${endLon})`);
 
-  // 1. Load data from DB
-  const linesRes = await db.query('SELECT * FROM lineas');
-  const pointsRes = await db.query('SELECT * FROM puntos');
-  const routesRes = await db.query('SELECT * FROM linea_ruta');
-  const segmentsRes = await db.query('SELECT * FROM lineas_puntos ORDER BY id_linea_ruta, orden');
-  const transfersRes = await db.query('SELECT * FROM puntos_trasbordos');
-
-  const linesMap = new Map(linesRes.rows.map(l => [l.id_linea, l]));
-  const pointsMap = new Map(pointsRes.rows.map(p => [p.id_point, p]));
-  const routesMap = new Map(routesRes.rows.map(r => [r.id_linea_ruta, r]));
-
-  const points = pointsRes.rows;
-  const segments = segmentsRes.rows;
+  // 1. Los datos ahora se cargan globalmente a través de initCache()
 
   // 2. Identify start and end candidate points (within 1.2 km)
   const startCandidates = [];
@@ -610,7 +616,7 @@ async function findAlternativeRoutes(startLat, startLon, endLat, endLon, mode = 
 
     // Transfer edges
     if (mode === 'official') {
-      for (const tf of transfersRes.rows) {
+      for (const tf of transfers) {
         const pId = tf.id_punto;
         const rOrig = tf.id_linea_origen;
         const rDest = tf.id_linea_destino;
@@ -951,6 +957,7 @@ async function findAlternativeRoutes(startLat, startLon, endLat, endLon, mode = 
 }
 
 module.exports = {
+  initCache,
   findOptimalRoute,
   findAlternativeRoutes,
   haversine
